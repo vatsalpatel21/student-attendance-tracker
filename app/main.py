@@ -20,18 +20,7 @@ def init_db():
             timestamp TEXT NOT NULL
         )
     """)
-    cursor.execute("SELECT COUNT(*) FROM attendance")
-    if cursor.fetchone()[0] == 0:
-        default_records = [
-            ("STU101", "Aarav Sharma", "Present", "2026-10-30 09:00:00"),
-            ("STU102", "Diya Patel", "Present", "2026-10-30 09:05:00"),
-            ("STU103", "Rohan Mehta", "Absent", "2026-10-30 09:10:00")
-        ]
-        cursor.executemany(
-            "INSERT INTO attendance (student_id, student_name, status, timestamp) VALUES (?, ?, ?, ?)",
-            default_records
-        )
-        conn.commit()
+    conn.commit()
     conn.close()
 
 init_db()
@@ -114,6 +103,16 @@ def dashboard():
                 const data = await res.json();
                 const body = document.getElementById('recordsBody');
                 body.innerHTML = '';
+                if (data.length === 0) {
+                    body.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-slate-500 text-sm">
+                                No attendance records found. Add one using the form above.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
                 data.forEach(item => {
                     const isPresent = item.status === 'Present';
                     const badgeClass = isPresent ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
