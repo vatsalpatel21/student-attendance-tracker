@@ -69,6 +69,12 @@ jobs:
 
     steps:
       - name: Trigger Live Production Webhook
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          echo "Triggering zero-touch production deployment..."
-          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          if [ -n "$DEPLOY_HOOK" ]; then
+            echo "Triggering zero-touch production deployment..."
+            curl -f -X POST "$DEPLOY_HOOK"
+          else
+            echo "RENDER_DEPLOY_HOOK secret is not set. Skipping production deployment."
+          fi
