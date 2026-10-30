@@ -76,3 +76,5 @@ The service will run locally at `http://127.0.0.1:8000`.
 ```bash
 pytest tests/
 ```
+## Live Deployment
+- Production URL: https://student-attendance-tracker-j0gg.onrender.com
