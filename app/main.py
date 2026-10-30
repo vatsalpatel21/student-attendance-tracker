@@ -1,82 +1,156 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import Literal
-from app.database import get_connection, init_db
+from typing import List, Dict
+from datetime import datetime
 
-app = FastAPI(
-    title="Student Attendance Tracker",
-    description="DevOps Microservice with Autonomous CI/CD",
-    version="1.0.0"
-)
-
-# Initialize database schema on startup
-@app.on_event("startup")
-def startup_event():
-    init_db()
+app = FastAPI(title="Student Attendance Tracker", version="1.0.0")
 
 class AttendanceRecord(BaseModel):
     student_id: str
     student_name: str
-    course_code: str
-    status: Literal["Present", "Absent", "Late"]
+    status: str
 
-@app.get("/")
-def root():
-    return {
-        "service": "Student Attendance Tracker",
-        "status": "online",
-        "version": "1.0.0"
-    }
+attendance_db: List[Dict] = [
+    {"student_id": "STU101", "student_name": "Aarav Sharma", "status": "Present", "timestamp": "2026-10-30 09:00:00"},
+    {"student_id": "STU102", "student_name": "Diya Patel", "status": "Present", "timestamp": "2026-10-30 09:05:00"},
+    {"student_id": "STU103", "student_name": "Rohan Mehta", "status": "Absent", "timestamp": "2026-10-30 09:10:00"}
+]
+
+@app.get("/", response_class=HTMLResponse)
+def dashboard():
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Attendance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-emerald-400">Student Attendance Tracker</h1>
+                <p class="text-slate-400 text-sm mt-1">DevOps CI/CD Pipeline | Autonomous Deployment</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Render
+                </span>
+                <a href="/docs" target="_blank" class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    Swagger API Docs &rarr;
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <h2 class="text-lg font-semibold text-slate-200 mb-4">Mark New Attendance</h2>
+            <form id="attendanceForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="text" id="student_id" placeholder="Student ID (e.g., STU104)" required
+                    class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                <input type="text" id="student_name" placeholder="Student Name" required
+                    class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                <select id="status" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                </select>
+                <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 font-semibold text-slate-950 px-4 py-2.5 rounded-lg text-sm transition shadow-lg shadow-emerald-500/20">
+                    Record Attendance
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl overflow-hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold text-slate-200">Attendance Records</h2>
+                <button onclick="loadRecords()" class="text-xs text-emerald-400 hover:underline">Refresh List</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="px-4 py-3">Student ID</th>
+                            <th class="px-4 py-3">Name</th>
+                            <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody" class="divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadRecords() {
+            try {
+                const res = await fetch('/api/attendance');
+                const data = await res.json();
+                const body = document.getElementById('recordsBody');
+                body.innerHTML = '';
+                data.forEach(item => {
+                    const isPresent = item.status === 'Present';
+                    const badgeClass = isPresent ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                    body.innerHTML += `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="px-4 py-3 font-mono text-slate-300">${item.student_id}</td>
+                            <td class="px-4 py-3 font-medium text-white">${item.student_name}</td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold border ${badgeClass}">
+                                    ${item.status}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-400 font-mono text-xs">${item.timestamp}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error('Error fetching records:', err);
+            }
+        }
+
+        document.getElementById('attendanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const record = {
+                student_id: document.getElementById('student_id').value,
+                student_name: document.getElementById('student_name').value,
+                status: document.getElementById('status').value
+            };
+            const res = await fetch('/api/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(record)
+            });
+            if (res.ok) {
+                document.getElementById('student_id').value = '';
+                document.getElementById('student_name').value = '';
+                loadRecords();
+            } else {
+                alert('Failed to record attendance');
+            }
+        });
+
+        loadRecords();
+    </script>
+</body>
+</html>"""
 
 @app.get("/health")
-def health():
-    return {"status": "healthy"}
+def health_check():
+    return {"status": "healthy", "service": "student-attendance-tracker"}
 
-@app.post("/attendance", status_code=201)
-def mark_attendance(record: AttendanceRecord):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO attendance (student_id, student_name, course_code, status)
-        VALUES (?, ?, ?, ?)
-        """,
-        (record.student_id, record.student_name, record.course_code, record.status)
-    )
-    conn.commit()
-    record_id = cursor.lastrowid
-    conn.close()
-    return {"message": "Attendance recorded", "id": record_id, "data": record.model_dump()}
+@app.get("/api/attendance", response_model=List[Dict])
+def get_attendance():
+    return attendance_db
 
-@app.get("/attendance/{student_id}")
-def get_student_attendance(student_id: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, student_id, student_name, course_code, status, timestamp FROM attendance WHERE student_id = ?",
-        (student_id,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    
-    if not rows:
-        raise HTTPException(status_code=404, detail="No attendance records found for this student")
-    
-    return [dict(row) for row in rows]
-
-@app.get("/attendance/summary/{course_code}")
-def get_course_summary(course_code: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT status, COUNT(*) as count 
-        FROM attendance 
-        WHERE course_code = ? 
-        GROUP BY status
-        """,
-        (course_code,)
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return {row["status"]: row["count"] for row in rows}
+@app.post("/api/attendance", status_code=201)
+def add_attendance(record: AttendanceRecord):
+    new_entry = {
+        "student_id": record.student_id,
+        "student_name": record.student_name,
+        "status": record.status,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    attendance_db.append(new_entry)
+    return {"message": "Attendance recorded successfully", "record": new_entry}
