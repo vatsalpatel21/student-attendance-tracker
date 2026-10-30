@@ -20,7 +20,6 @@ def init_db():
             timestamp TEXT NOT NULL
         )
     """)
-    # Seed default data if table is brand new
     cursor.execute("SELECT COUNT(*) FROM attendance")
     if cursor.fetchone()[0] == 0:
         default_records = [
@@ -35,7 +34,6 @@ def init_db():
         conn.commit()
     conn.close()
 
-# Initialize SQL table on startup
 init_db()
 
 class AttendanceRecord(BaseModel):
@@ -200,3 +198,15 @@ def add_attendance(record: AttendanceRecord):
             "timestamp": now
         }
     }
+
+@app.delete("/api/attendance/{record_id}")
+def delete_attendance(record_id: int):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM attendance WHERE id = ?", (record_id,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail=f"Record with ID {record_id} not found")
+    return {"message": f"Record {record_id} deleted successfully"}
