@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+﻿from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
@@ -11,7 +11,11 @@ def test_dashboard():
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy", "service": "student-attendance-tracker"}
+    assert response.json() == {
+        "status": "healthy",
+        "service": "student-attendance-tracker",
+        "database": "sqlite3"
+    }
 
 def test_get_attendance():
     response = client.get("/api/attendance")
@@ -26,4 +30,4 @@ def test_post_attendance():
     }
     response = client.post("/api/attendance", json=payload)
     assert response.status_code == 201
-    assert response.json()["message"] == "Attendance recorded successfully"
+    assert response.json()["message"] == "Attendance recorded successfully in SQL database"

@@ -1,21 +1,47 @@
-﻿from fastapi import FastAPI
+﻿import sqlite3
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict
 from datetime import datetime
 
 app = FastAPI(title="Student Attendance Tracker", version="1.0.0")
+DB_NAME = "attendance.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id TEXT NOT NULL,
+            student_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+    """)
+    # Seed default data if table is brand new
+    cursor.execute("SELECT COUNT(*) FROM attendance")
+    if cursor.fetchone()[0] == 0:
+        default_records = [
+            ("STU101", "Aarav Sharma", "Present", "2026-10-30 09:00:00"),
+            ("STU102", "Diya Patel", "Present", "2026-10-30 09:05:00"),
+            ("STU103", "Rohan Mehta", "Absent", "2026-10-30 09:10:00")
+        ]
+        cursor.executemany(
+            "INSERT INTO attendance (student_id, student_name, status, timestamp) VALUES (?, ?, ?, ?)",
+            default_records
+        )
+        conn.commit()
+    conn.close()
+
+# Initialize SQL table on startup
+init_db()
 
 class AttendanceRecord(BaseModel):
     student_id: str
     student_name: str
     status: str
-
-attendance_db: List[Dict] = [
-    {"student_id": "STU101", "student_name": "Aarav Sharma", "status": "Present", "timestamp": "2026-10-30 09:00:00"},
-    {"student_id": "STU102", "student_name": "Diya Patel", "status": "Present", "timestamp": "2026-10-30 09:05:00"},
-    {"student_id": "STU103", "student_name": "Rohan Mehta", "status": "Absent", "timestamp": "2026-10-30 09:10:00"}
-]
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
@@ -32,7 +58,7 @@ def dashboard():
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight text-emerald-400">Student Attendance Tracker</h1>
-                <p class="text-slate-400 text-sm mt-1">DevOps CI/CD Pipeline | Autonomous Deployment</p>
+                <p class="text-slate-400 text-sm mt-1">DevOps CI/CD Pipeline | SQLite Engine | Autonomous Deployment</p>
             </div>
             <div class="mt-4 md:mt-0 flex gap-2">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -63,13 +89,14 @@ def dashboard():
 
         <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl overflow-hidden">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-slate-200">Attendance Records</h2>
+                <h2 class="text-lg font-semibold text-slate-200">SQL Attendance Records</h2>
                 <button onclick="loadRecords()" class="text-xs text-emerald-400 hover:underline">Refresh List</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
                         <tr>
+                            <th class="px-4 py-3">SQL ID</th>
                             <th class="px-4 py-3">Student ID</th>
                             <th class="px-4 py-3">Name</th>
                             <th class="px-4 py-3">Status</th>
@@ -94,6 +121,7 @@ def dashboard():
                     const badgeClass = isPresent ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                     body.innerHTML += `
                         <tr class="hover:bg-slate-800/40 transition">
+                            <td class="px-4 py-3 font-mono text-slate-500 text-xs">${item.id}</td>
                             <td class="px-4 py-3 font-mono text-slate-300">${item.student_id}</td>
                             <td class="px-4 py-3 font-medium text-white">${item.student_name}</td>
                             <td class="px-4 py-3">
@@ -138,19 +166,37 @@ def dashboard():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "service": "student-attendance-tracker"}
+    return {"status": "healthy", "service": "student-attendance-tracker", "database": "sqlite3"}
 
 @app.get("/api/attendance", response_model=List[Dict])
 def get_attendance():
-    return attendance_db
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, student_id, student_name, status, timestamp FROM attendance ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 @app.post("/api/attendance", status_code=201)
 def add_attendance(record: AttendanceRecord):
-    new_entry = {
-        "student_id": record.student_id,
-        "student_name": record.student_name,
-        "status": record.status,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO attendance (student_id, student_name, status, timestamp) VALUES (?, ?, ?, ?)",
+        (record.student_id, record.student_name, record.status, now)
+    )
+    conn.commit()
+    inserted_id = cursor.lastrowid
+    conn.close()
+    return {
+        "message": "Attendance recorded successfully in SQL database",
+        "record": {
+            "id": inserted_id,
+            "student_id": record.student_id,
+            "student_name": record.student_name,
+            "status": record.status,
+            "timestamp": now
+        }
     }
-    attendance_db.append(new_entry)
-    return {"message": "Attendance recorded successfully", "record": new_entry}
