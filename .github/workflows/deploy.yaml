@@ -72,9 +72,10 @@ jobs:
         env:
           DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          if [ -n "$DEPLOY_HOOK" ]; then
+          CLEAN_HOOK=$(echo "$DEPLOY_HOOK" | tr -d '\"'\''[]')
+          if [ -n "$CLEAN_HOOK" ]; then
             echo "Triggering zero-touch production deployment..."
-            curl -f -X POST "$DEPLOY_HOOK"
+            curl -g -f -X POST "$CLEAN_HOOK"
           else
             echo "RENDER_DEPLOY_HOOK secret is not set. Skipping production deployment."
           fi
