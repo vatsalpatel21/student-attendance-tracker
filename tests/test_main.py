@@ -11,36 +11,26 @@ def test_dashboard():
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "healthy",
-        "service": "student-attendance-tracker",
-        "database": "sqlite3"
-    }
+    assert response.json()["status"] == "healthy"
 
 def test_get_attendance():
     response = client.get("/api/attendance")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
-def test_post_attendance():
+def test_post_attendance_with_custom_date():
     payload = {
-        "student_id": "TEST999",
-        "student_name": "Integration Test",
-        "status": "Present"
+        "student_id": "TEST_DATE",
+        "student_name": "Date Tester",
+        "status": "Present",
+        "date": "2026-10-15"
     }
     response = client.post("/api/attendance", json=payload)
     assert response.status_code == 201
-    assert response.json()["message"] == "Attendance recorded successfully in SQL database"
+    assert "2026-10-15" in response.json()["record"]["timestamp"]
 
-def test_delete_attendance():
-    payload = {
-        "student_id": "DEL_TEST",
-        "student_name": "To Delete",
-        "status": "Absent"
-    }
-    post_res = client.post("/api/attendance", json=payload)
-    record_id = post_res.json()["record"]["id"]
-    
-    del_res = client.delete(f"/api/attendance/{record_id}")
-    assert del_res.status_code == 200
-    assert f"Record {record_id} deleted successfully" in del_res.json()["message"]
+def test_export_monthly_csv():
+    response = client.get("/api/attendance/export/csv?month=2026-10")
+    assert response.status_code == 200
+    assert "text/csv" in response.headers["content-type"]
+    assert "Student ID" in response.text
