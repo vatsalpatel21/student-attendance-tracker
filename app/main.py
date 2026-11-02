@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 from datetime import datetime
 
-app = FastAPI(title="Student Attendance Tracker", version="1.0.0")
+app = FastAPI(title="Student Attendance Management", version="1.0.0")
 DB_NAME = "attendance.db"
 
 def init_db():
@@ -40,7 +40,7 @@ def dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Attendance Tracker</title>
+    <title>Student Attendance Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
@@ -48,7 +48,7 @@ def dashboard():
         <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
             <div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-emerald-400">Student Attendance Tracker</h1>
+                <h1 class="text-3xl font-extrabold tracking-tight text-emerald-400">Student Attendance Management</h1>
                 <p class="text-slate-400 text-sm mt-1">DevOps CI/CD Pipeline | SQLite Engine | Autonomous Deployment</p>
             </div>
             <div class="mt-4 md:mt-0 flex gap-2">

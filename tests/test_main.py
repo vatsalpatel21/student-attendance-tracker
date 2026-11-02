@@ -6,7 +6,7 @@ client = TestClient(app)
 def test_dashboard():
     response = client.get("/")
     assert response.status_code == 200
-    assert "Student Attendance Tracker" in response.text
+    assert "Student Attendance Management" in response.text
 
 def test_health_check():
     response = client.get("/health")
